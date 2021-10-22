@@ -66,7 +66,7 @@ The code has been tested on WSL2/Linux based machines. For Windows/MacOS you mig
   flask run -p <port>
   ```
 
-You should be able to access the webpage on http://localhost:<port>/
+You should be able to access the webpage on http://localhost:PORT_NUMBER/
 
 ### Deploying using Docker on local system
 
@@ -100,7 +100,7 @@ You should be able to access the webpage on http://localhost:<port>/
 
    
 
-3. Create a new Heroku app. This also provides the URL to be used for your app post deployment (E.g: https://<my-app>.herokuapp.com/)
+3. Create a new Heroku app. This also provides the URL to be used for your app post deployment (E.g: https://_my-app_.herokuapp.com/)
 
    ```
    heroku create <my-app>
@@ -164,5 +164,5 @@ You should be able to access the webpage on http://localhost:<port>/
 
    
 
-10. You can now access the deployed app using the URL from Step 3 i.e https://<my-app>.herokuapp.com/
+10. You can now access the deployed app using the URL from Step 3 i.e https://_my-app_.herokuapp.com/
 
