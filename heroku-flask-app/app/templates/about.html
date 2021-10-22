@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="px-3 py-3 text-center">
+            <h1 class="display-4">About this project</h1>
+            <div class="my-2">
+                <img style="max-width: 600px; width: 100%;" src="{{ url_for('static', filename='img/flask+pytorch.png') }}" alt="">
+            </div>
+                <p class="lead">
+                    This webapp is to show case deployment of Deep learning models on Heroku.<br>
+                    Currently, this app supports only MobileNetV2 model that was pre-trained on the ImageNet dataset.<br>
+                    The code for this webapp can be found on <a
+                    href="https://github.com/imadtoubal/Pytorch-Flask-Docker-App">
+                    GitHub </a>.<br>
+                </p>
+                <p class="lead">
+                    As a deep learning enthusiast, I develop simple and usable Deep learning apps that can be deployed on variety of platforms.
+                    For More details checkout my <a
+                    class="text-muted"
+                    href="https://rekogwebservice.tk/about">
+                      Webpage
+                    </a><br>
+                    Please feel free to reach me on <a
+                            class="text-muted"
+                            href="https://www.linkedin.com/in/rajesh-y">
+                              LinkedIn
+                            </a><br>
+                </p>
+            <p>
+                The core idea is taken from <a
+                href="https://github.com/imadtoubal/Pytorch-Flask-Docker-App">this link </a> 
+                with changes to handle multiple images and an option to view history.
+            </p>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
