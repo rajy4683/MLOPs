@@ -9,8 +9,8 @@ Following changes have been made to the pipeline:
 
    1. This node acts as a gating mechanism and prevents actual training job if the model cannot be overfitted.
    2. To achieve this, a new docker image (based on pytorch-samples/kfp_samples ) was created with the following files:
-      1. [cifar10_overfitting.py]()
-      2. [overfit_component.yaml]()
+      1. [cifar10_overfitting.py](https://github.com/rajy4683/MLOPs/blob/master/kubeflow-sample/cifar10/cifar10_overfit.py)
+      2. [overfit_component.yaml](https://github.com/rajy4683/MLOPs/blob/master/kubeflow-sample/yaml/overfit_component.yaml)
    3. The pipeline.py was modified to include this new node. 
 
    ```python
@@ -34,7 +34,7 @@ Following changes have been made to the pipeline:
    2. Enable gradient accumulation strategy to simulate large batch size on limited GPU memory
    3. Enable [Stochastic Weight Averaging](https://pytorch.org/blog/pytorch-1.6-now-includes-stochastic-weight-averaging)
    4. Usage of 16-bit precision during training.
-   5. The changes can be found [here]().
+   5. The changes can be found [here](https://github.com/rajy4683/MLOPs/blob/master/kubeflow-sample/cifar10/pipeline.py).
 
 ```python
 diff --git a/samples/contrib/pytorch-samples/cifar10/pipeline.py b/samples/contrib/pytorch-samples/cifar10/pipeline.py
@@ -89,7 +89,7 @@ index 8a64e48be..8aa6ef666 100644
 
 ### Sample workflow graph
 
-![]()
+![Workflow Graph](https://github.com/rajy4683/MLOPs/blob/master/kubeflow-sample/imgs/SuccessfulExpCust.JPG)
 
 
 
