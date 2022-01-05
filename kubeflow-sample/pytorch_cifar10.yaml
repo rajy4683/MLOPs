@@ -1,0 +1,838 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: training-cifar10-pipeline-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.10, pipelines.kubeflow.org/pipeline_compilation_time: '2022-01-04T18:00:23.874557',
+    pipelines.kubeflow.org/pipeline_spec: '{"description": "Cifar 10 dataset pipeline",
+      "inputs": [{"default": "http://minio-service.kubeflow:9000", "name": "minio_endpoint",
+      "optional": true}, {"default": "mlpipeline", "name": "log_bucket", "optional":
+      true}, {"default": "tensorboard/logs/{{workflow.uid}}", "name": "log_dir", "optional":
+      true}, {"default": "mar/{{workflow.uid}}/model-store", "name": "mar_path", "optional":
+      true}, {"default": "mar/{{workflow.uid}}/config", "name": "config_prop_path",
+      "optional": true}, {"default": "s3://mlpipeline/mar/{{workflow.uid}}", "name":
+      "model_uri", "optional": true}, {"default": "public.ecr.aws/pytorch-samples/tboard:latest",
+      "name": "tf_image", "optional": true}, {"default": "torchserve", "name": "deploy",
+      "optional": true}, {"default": "torchserve.kubeflow-user-example-com.example.com",
+      "name": "isvc_name", "optional": true}, {"default": "cifar10", "name": "model",
+      "optional": true}, {"default": "kubeflow-user-example-com", "name": "namespace",
+      "optional": true}, {"default": "confusion_matrix/{{workflow.uid}}/", "name":
+      "confusion_matrix_log_dir", "optional": true}, {"default": "checkpoint_dir/cifar10",
+      "name": "checkpoint_dir", "optional": true}, {"default": "https://kubeflow-dataset.s3.us-east-2.amazonaws.com/cifar10_input/input.json",
+      "name": "input_req", "optional": true}, {"default": "authservice_session=",
+      "name": "cookie", "optional": true}, {"default": "http://istio-ingressgateway.istio-system.svc.cluster.local",
+      "name": "ingress_gateway", "optional": true}], "name": "Training Cifar10 pipeline"}'}
+  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.10}
+spec:
+  entrypoint: training-cifar10-pipeline
+  templates:
+  - name: create-tensorboard-visualization
+    container:
+      args: []
+      command:
+      - sh
+      - -ex
+      - -c
+      - |
+        log_dir="$0"
+        output_log_dir_path="$1"
+        output_metadata_path="$2"
+        pod_template_spec="$3"
+        image="$4"
+
+        mkdir -p "$(dirname "$output_log_dir_path")"
+        mkdir -p "$(dirname "$output_metadata_path")"
+        echo "$log_dir" > "$output_log_dir_path"
+
+        echo '
+            {
+              "outputs" : [{
+                "type": "tensorboard",
+                "source": "'"$log_dir"'",
+                "image": "'"$image"'",
+                "pod_template_spec": '"$pod_template_spec"'
+              }]
+            }
+        ' >"$output_metadata_path"
+      - s3://{{inputs.parameters.log_bucket}}/{{inputs.parameters.log_dir}}
+      - /tmp/outputs/Log_dir_URI/data
+      - /tmp/outputs/MLPipeline_UI_Metadata/data
+      - '{"spec": {"containers": [{"env": [{"name": "AWS_ACCESS_KEY_ID", "valueFrom":
+        {"secretKeyRef": {"name": "mlpipeline-minio-artifact", "key": "accesskey"}}},
+        {"name": "AWS_SECRET_ACCESS_KEY", "valueFrom": {"secretKeyRef": {"name": "mlpipeline-minio-artifact",
+        "key": "secretkey"}}}, {"name": "AWS_REGION", "value": "minio"}, {"name":
+        "S3_ENDPOINT", "value": "{{inputs.parameters.minio_endpoint}}"}, {"name":
+        "S3_USE_HTTPS", "value": "0"}, {"name": "S3_VERIFY_SSL", "value": "0"}]}]}}'
+      - '{{inputs.parameters.tf_image}}'
+      env:
+      - name: MINIO_SECRET_KEY
+        valueFrom:
+          secretKeyRef: {key: secretkey, name: mlpipeline-minio-artifact}
+      - name: MINIO_ACCESS_KEY
+        valueFrom:
+          secretKeyRef: {key: accesskey, name: mlpipeline-minio-artifact}
+      image: public.ecr.aws/pytorch-samples/alpine:latest
+    inputs:
+      parameters:
+      - {name: log_bucket}
+      - {name: log_dir}
+      - {name: minio_endpoint}
+      - {name: tf_image}
+    outputs:
+      artifacts:
+      - {name: mlpipeline-ui-metadata, path: /tmp/outputs/MLPipeline_UI_Metadata/data}
+      - {name: create-tensorboard-visualization-Log-dir-URI, path: /tmp/outputs/Log_dir_URI/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/task_display_name: Visualization, pipelines.kubeflow.org/component_spec: '{"description":
+          "Pre-creates Tensorboard visualization for a given Log dir URI.\nThis way
+          the Tensorboard can be viewed before the training completes.\nThe output
+          Log dir URI should be passed to a trainer component that will write Tensorboard
+          logs to that directory.\n", "implementation": {"container": {"command":
+          ["sh", "-ex", "-c", "log_dir=\"$0\"\noutput_log_dir_path=\"$1\"\noutput_metadata_path=\"$2\"\npod_template_spec=\"$3\"\nimage=\"$4\"\n\nmkdir
+          -p \"$(dirname \"$output_log_dir_path\")\"\nmkdir -p \"$(dirname \"$output_metadata_path\")\"\necho
+          \"$log_dir\" > \"$output_log_dir_path\"\n\necho ''\n    {\n      \"outputs\"
+          : [{\n        \"type\": \"tensorboard\",\n        \"source\": \"''\"$log_dir\"''\",\n        \"image\":
+          \"''\"$image\"''\",\n        \"pod_template_spec\": ''\"$pod_template_spec\"''\n      }]\n    }\n''
+          >\"$output_metadata_path\"\n", {"inputValue": "Log dir URI"}, {"outputPath":
+          "Log dir URI"}, {"outputPath": "MLPipeline UI Metadata"}, {"inputValue":
+          "Pod Template Spec"}, {"inputValue": "Image"}], "image": "public.ecr.aws/pytorch-samples/alpine:latest"}},
+          "inputs": [{"description": "Tensorboard log path", "name": "Log dir URI"},
+          {"default": "", "description": "Tensorboard docker image", "name": "Image"},
+          {"default": "null", "description": "Pod template specification", "name":
+          "Pod Template Spec"}], "name": "Create Tensorboard visualization", "outputs":
+          [{"description": "Tensorboard log output", "name": "Log dir URI"}, {"description":
+          "MLPipeline UI Metadata output", "name": "MLPipeline UI Metadata"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "858be46aa5ba4cc946bdc97d2ba1f54c24e66ae500c1a2b4b73b0cd5d0064eae", "url":
+          "yaml/tensorboard_component.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"Image":
+          "{{inputs.parameters.tf_image}}", "Log dir URI": "s3://{{inputs.parameters.log_bucket}}/{{inputs.parameters.log_dir}}",
+          "Pod Template Spec": "{\"spec\": {\"containers\": [{\"env\": [{\"name\":
+          \"AWS_ACCESS_KEY_ID\", \"valueFrom\": {\"secretKeyRef\": {\"name\": \"mlpipeline-minio-artifact\",
+          \"key\": \"accesskey\"}}}, {\"name\": \"AWS_SECRET_ACCESS_KEY\", \"valueFrom\":
+          {\"secretKeyRef\": {\"name\": \"mlpipeline-minio-artifact\", \"key\": \"secretkey\"}}},
+          {\"name\": \"AWS_REGION\", \"value\": \"minio\"}, {\"name\": \"S3_ENDPOINT\",
+          \"value\": \"{{inputs.parameters.minio_endpoint}}\"}, {\"name\": \"S3_USE_HTTPS\",
+          \"value\": \"0\"}, {\"name\": \"S3_VERIFY_SSL\", \"value\": \"0\"}]}]}}"}'}
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.10
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+  - name: inference
+    container:
+      args: []
+      command:
+      - sh
+      - -ex
+      - -c
+      - |
+        host_name="$0"
+        input_request="$1"
+        output_metadata_path="$2"
+        cookie="$3"
+        url="$4"
+        model="$5"
+        inference_type="$6"
+
+        mkdir -p "$(dirname "$output_metadata_path")"
+        curl $input_request > /tmp/input.json
+        curl -v -H "Host: ${host_name}" -H "Cookie: ${cookie}" "${url}/v1/models/${model}:${inference_type}" -d @./tmp/input.json > /tmp/output.json
+
+        input=$(echo $input_request | sed -e "s/^/\"## Request: \\\n/" | sed -e "s/$/\"/")
+        output=$(cat /tmp/output.json | jq '.| tostring' | sed -e "s/^.\{1\}/&## Response: \\\n\`\`\`json\\\n/" -e "s/.$/\\\n\`\`\`\"/")
+
+        echo '{
+              "outputs" : [
+                {
+                  "storage": "inline",
+                  "source": '"$input"',
+                  "type": "markdown"
+                },
+                {
+                  "storage": "inline",
+                  "source": '"$output"',
+                  "type": "markdown"
+                }
+             ]
+            }'  > "$output_metadata_path"
+      - '{{inputs.parameters.isvc_name}}'
+      - '{{inputs.parameters.input_req}}'
+      - /tmp/outputs/MLPipeline_UI_Metadata/data
+      - '{{inputs.parameters.cookie}}'
+      - '{{inputs.parameters.ingress_gateway}}'
+      - '{{inputs.parameters.model}}'
+      - predict
+      env:
+      - name: MINIO_SECRET_KEY
+        valueFrom:
+          secretKeyRef: {key: secretkey, name: mlpipeline-minio-artifact}
+      - name: MINIO_ACCESS_KEY
+        valueFrom:
+          secretKeyRef: {key: accesskey, name: mlpipeline-minio-artifact}
+      image: public.ecr.aws/pytorch-samples/alpine:latest
+    inputs:
+      parameters:
+      - {name: cookie}
+      - {name: ingress_gateway}
+      - {name: input_req}
+      - {name: isvc_name}
+      - {name: model}
+    outputs:
+      artifacts:
+      - {name: mlpipeline-ui-metadata, path: /tmp/outputs/MLPipeline_UI_Metadata/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/task_display_name: Prediction, pipelines.kubeflow.org/component_spec: '{"description":
+          "Makes Inference request.", "implementation": {"container": {"command":
+          ["sh", "-ex", "-c", "host_name=\"$0\"\ninput_request=\"$1\"\noutput_metadata_path=\"$2\"\ncookie=\"$3\"\nurl=\"$4\"\nmodel=\"$5\"\ninference_type=\"$6\"\n\nmkdir
+          -p \"$(dirname \"$output_metadata_path\")\"\ncurl $input_request > /tmp/input.json\ncurl
+          -v -H \"Host: ${host_name}\" -H \"Cookie: ${cookie}\" \"${url}/v1/models/${model}:${inference_type}\"
+          -d @./tmp/input.json > /tmp/output.json\n\ninput=$(echo $input_request |
+          sed -e \"s/^/\\\"## Request: \\\\\\n/\" | sed -e \"s/$/\\\"/\")\noutput=$(cat
+          /tmp/output.json | jq ''.| tostring'' | sed -e \"s/^.\\{1\\}/&## Response:
+          \\\\\\n\\`\\`\\`json\\\\\\n/\" -e \"s/.$/\\\\\\n\\`\\`\\`\\\"/\")\n\necho
+          ''{\n      \"outputs\" : [\n        {\n          \"storage\": \"inline\",\n          \"source\":
+          ''\"$input\"'',\n          \"type\": \"markdown\"\n        },\n        {\n          \"storage\":
+          \"inline\",\n          \"source\": ''\"$output\"'',\n          \"type\":
+          \"markdown\"\n        }\n     ]\n    }''  > \"$output_metadata_path\"\n",
+          {"inputValue": "Host Name"}, {"inputValue": "Input Request"}, {"outputPath":
+          "MLPipeline UI Metadata"}, {"inputValue": "Cookie"}, {"inputValue": "Url"},
+          {"inputValue": "Model"}, {"inputValue": "Inference Type"}], "image": "public.ecr.aws/pytorch-samples/alpine:latest"}},
+          "inputs": [{"description": "Host name of inference service", "name": "Host
+          Name"}, {"description": "Authentication token", "name": "Cookie"}, {"description":
+          "Prediction endpoing url", "name": "Url"}, {"description": "Model name",
+          "name": "Model"}, {"description": "Predict or Explain", "name": "Inference
+          Type"}, {"description": "Input request json", "name": "Input Request"}],
+          "name": "Inference", "outputs": [{"description": "MLPipeline UI Metadata
+          output", "name": "MLPipeline UI Metadata"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "f9c42aabf3c7293d9d8c3561655ff607d0361f143b655084694d3bd8f3489314", "url":
+          "yaml/prediction_component.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"Cookie":
+          "{{inputs.parameters.cookie}}", "Host Name": "{{inputs.parameters.isvc_name}}",
+          "Inference Type": "predict", "Input Request": "{{inputs.parameters.input_req}}",
+          "Model": "{{inputs.parameters.model}}", "Url": "{{inputs.parameters.ingress_gateway}}"}'}
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.10
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+  - name: inference-2
+    container:
+      args: []
+      command:
+      - sh
+      - -ex
+      - -c
+      - |
+        host_name="$0"
+        input_request="$1"
+        output_metadata_path="$2"
+        cookie="$3"
+        url="$4"
+        model="$5"
+        inference_type="$6"
+
+        mkdir -p "$(dirname "$output_metadata_path")"
+        curl $input_request > /tmp/input.json
+        curl -v -H "Host: ${host_name}" -H "Cookie: ${cookie}" "${url}/v1/models/${model}:${inference_type}" -d @./tmp/input.json > /tmp/output.json
+
+        input=$(echo $input_request | sed -e "s/^/\"## Request: \\\n/" | sed -e "s/$/\"/")
+        output=$(cat /tmp/output.json | jq '.| tostring' | sed -e "s/^.\{1\}/&## Response: \\\n\`\`\`json\\\n/" -e "s/.$/\\\n\`\`\`\"/")
+
+        echo '{
+              "outputs" : [
+                {
+                  "storage": "inline",
+                  "source": '"$input"',
+                  "type": "markdown"
+                },
+                {
+                  "storage": "inline",
+                  "source": '"$output"',
+                  "type": "markdown"
+                }
+             ]
+            }'  > "$output_metadata_path"
+      - '{{inputs.parameters.isvc_name}}'
+      - '{{inputs.parameters.input_req}}'
+      - /tmp/outputs/MLPipeline_UI_Metadata/data
+      - '{{inputs.parameters.cookie}}'
+      - '{{inputs.parameters.ingress_gateway}}'
+      - '{{inputs.parameters.model}}'
+      - explain
+      env:
+      - name: MINIO_SECRET_KEY
+        valueFrom:
+          secretKeyRef: {key: secretkey, name: mlpipeline-minio-artifact}
+      - name: MINIO_ACCESS_KEY
+        valueFrom:
+          secretKeyRef: {key: accesskey, name: mlpipeline-minio-artifact}
+      image: public.ecr.aws/pytorch-samples/alpine:latest
+    inputs:
+      parameters:
+      - {name: cookie}
+      - {name: ingress_gateway}
+      - {name: input_req}
+      - {name: isvc_name}
+      - {name: model}
+    outputs:
+      artifacts:
+      - {name: mlpipeline-ui-metadata, path: /tmp/outputs/MLPipeline_UI_Metadata/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/task_display_name: Explanation, pipelines.kubeflow.org/component_spec: '{"description":
+          "Makes Inference request.", "implementation": {"container": {"command":
+          ["sh", "-ex", "-c", "host_name=\"$0\"\ninput_request=\"$1\"\noutput_metadata_path=\"$2\"\ncookie=\"$3\"\nurl=\"$4\"\nmodel=\"$5\"\ninference_type=\"$6\"\n\nmkdir
+          -p \"$(dirname \"$output_metadata_path\")\"\ncurl $input_request > /tmp/input.json\ncurl
+          -v -H \"Host: ${host_name}\" -H \"Cookie: ${cookie}\" \"${url}/v1/models/${model}:${inference_type}\"
+          -d @./tmp/input.json > /tmp/output.json\n\ninput=$(echo $input_request |
+          sed -e \"s/^/\\\"## Request: \\\\\\n/\" | sed -e \"s/$/\\\"/\")\noutput=$(cat
+          /tmp/output.json | jq ''.| tostring'' | sed -e \"s/^.\\{1\\}/&## Response:
+          \\\\\\n\\`\\`\\`json\\\\\\n/\" -e \"s/.$/\\\\\\n\\`\\`\\`\\\"/\")\n\necho
+          ''{\n      \"outputs\" : [\n        {\n          \"storage\": \"inline\",\n          \"source\":
+          ''\"$input\"'',\n          \"type\": \"markdown\"\n        },\n        {\n          \"storage\":
+          \"inline\",\n          \"source\": ''\"$output\"'',\n          \"type\":
+          \"markdown\"\n        }\n     ]\n    }''  > \"$output_metadata_path\"\n",
+          {"inputValue": "Host Name"}, {"inputValue": "Input Request"}, {"outputPath":
+          "MLPipeline UI Metadata"}, {"inputValue": "Cookie"}, {"inputValue": "Url"},
+          {"inputValue": "Model"}, {"inputValue": "Inference Type"}], "image": "public.ecr.aws/pytorch-samples/alpine:latest"}},
+          "inputs": [{"description": "Host name of inference service", "name": "Host
+          Name"}, {"description": "Authentication token", "name": "Cookie"}, {"description":
+          "Prediction endpoing url", "name": "Url"}, {"description": "Model name",
+          "name": "Model"}, {"description": "Predict or Explain", "name": "Inference
+          Type"}, {"description": "Input request json", "name": "Input Request"}],
+          "name": "Inference", "outputs": [{"description": "MLPipeline UI Metadata
+          output", "name": "MLPipeline UI Metadata"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "f9c42aabf3c7293d9d8c3561655ff607d0361f143b655084694d3bd8f3489314", "url":
+          "yaml/prediction_component.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"Cookie":
+          "{{inputs.parameters.cookie}}", "Host Name": "{{inputs.parameters.isvc_name}}",
+          "Inference Type": "explain", "Input Request": "{{inputs.parameters.input_req}}",
+          "Model": "{{inputs.parameters.model}}", "Url": "{{inputs.parameters.ingress_gateway}}"}'}
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.10
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+  - name: kubeflow-serve-model-using-kfserving
+    container:
+      args:
+      - -u
+      - kfservingdeployer.py
+      - --action
+      - apply
+      - --model-name
+      - ''
+      - --model-uri
+      - ''
+      - --canary-traffic-percent
+      - '100'
+      - --namespace
+      - ''
+      - --framework
+      - ''
+      - --custom-model-spec
+      - '{}'
+      - --autoscaling-target
+      - '0'
+      - --service-account
+      - ''
+      - --enable-istio-sidecar
+      - "True"
+      - --output-path
+      - /tmp/outputs/InferenceService_Status/data
+      - --inferenceservice-yaml
+      - "\n    apiVersion: \"serving.kubeflow.org/v1beta1\"\n    kind: \"InferenceService\"\
+        \n    metadata:\n      name: {{inputs.parameters.deploy}}\n      namespace:\
+        \ {{inputs.parameters.namespace}}\n    spec:\n      predictor:\n        serviceAccountName:\
+        \ sa\n        pytorch:\n          storageUri: {{inputs.parameters.model_uri}}\n\
+        \          resources:\n            limits:\n              memory: 4Gi\n  \
+        \  "
+      - --watch-timeout
+      - '300'
+      - --min-replicas
+      - '-1'
+      - --max-replicas
+      - '-1'
+      command: [python]
+      env:
+      - name: MINIO_SECRET_KEY
+        valueFrom:
+          secretKeyRef: {key: secretkey, name: mlpipeline-minio-artifact}
+      - name: MINIO_ACCESS_KEY
+        valueFrom:
+          secretKeyRef: {key: accesskey, name: mlpipeline-minio-artifact}
+      image: quay.io/aipipeline/kfserving-component:v0.5.0
+    inputs:
+      parameters:
+      - {name: deploy}
+      - {name: model_uri}
+      - {name: namespace}
+    outputs:
+      artifacts:
+      - {name: kubeflow-serve-model-using-kfserving-InferenceService-Status, path: /tmp/outputs/InferenceService_Status/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/task_display_name: Deployer, pipelines.kubeflow.org/component_spec: '{"description":
+          "Serve Models using Kubeflow KFServing", "implementation": {"container":
+          {"args": ["-u", "kfservingdeployer.py", "--action", {"inputValue": "Action"},
+          "--model-name", {"inputValue": "Model Name"}, "--model-uri", {"inputValue":
+          "Model URI"}, "--canary-traffic-percent", {"inputValue": "Canary Traffic
+          Percent"}, "--namespace", {"inputValue": "Namespace"}, "--framework", {"inputValue":
+          "Framework"}, "--custom-model-spec", {"inputValue": "Custom Model Spec"},
+          "--autoscaling-target", {"inputValue": "Autoscaling Target"}, "--service-account",
+          {"inputValue": "Service Account"}, "--enable-istio-sidecar", {"inputValue":
+          "Enable Istio Sidecar"}, "--output-path", {"outputPath": "InferenceService
+          Status"}, "--inferenceservice-yaml", {"inputValue": "InferenceService YAML"},
+          "--watch-timeout", {"inputValue": "Watch Timeout"}, "--min-replicas", {"inputValue":
+          "Min Replicas"}, "--max-replicas", {"inputValue": "Max Replicas"}], "command":
+          ["python"], "image": "quay.io/aipipeline/kfserving-component:v0.5.0"}},
+          "inputs": [{"default": "create", "description": "Action to execute on KFServing",
+          "name": "Action", "type": "String"}, {"default": "", "description": "Name
+          to give to the deployed model", "name": "Model Name", "type": "String"},
+          {"default": "", "description": "Path of the S3 or GCS compatible directory
+          containing the model.", "name": "Model URI", "type": "String"}, {"default":
+          "100", "description": "The traffic split percentage between the candidate
+          model and the last ready model", "name": "Canary Traffic Percent", "type":
+          "String"}, {"default": "", "description": "Kubernetes namespace where the
+          KFServing service is deployed.", "name": "Namespace", "type": "String"},
+          {"default": "", "description": "Machine Learning Framework for Model Serving.",
+          "name": "Framework", "type": "String"}, {"default": "{}", "description":
+          "Custom model runtime container spec in JSON", "name": "Custom Model Spec",
+          "type": "String"}, {"default": "0", "description": "Autoscaling Target Number",
+          "name": "Autoscaling Target", "type": "String"}, {"default": "", "description":
+          "ServiceAccount to use to run the InferenceService pod", "name": "Service
+          Account", "type": "String"}, {"default": "True", "description": "Whether
+          to enable istio sidecar injection", "name": "Enable Istio Sidecar", "type":
+          "Bool"}, {"default": "{}", "description": "Raw InferenceService serialized
+          YAML for deployment", "name": "InferenceService YAML", "type": "String"},
+          {"default": "300", "description": "Timeout seconds for watching until InferenceService
+          becomes ready.", "name": "Watch Timeout", "type": "String"}, {"default":
+          "-1", "description": "Minimum number of InferenceService replicas", "name":
+          "Min Replicas", "type": "String"}, {"default": "-1", "description": "Maximum
+          number of InferenceService replicas", "name": "Max Replicas", "type": "String"}],
+          "name": "Kubeflow - Serve Model using KFServing", "outputs": [{"description":
+          "Status JSON output of InferenceService", "name": "InferenceService Status",
+          "type": "String"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "b5bcc51b053a631b0f66ea56383b96aa979443297f0a9c2aa62ca3d219ccee1a", "url":
+          "yaml/deploy_component.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"Action":
+          "apply", "Autoscaling Target": "0", "Canary Traffic Percent": "100", "Custom
+          Model Spec": "{}", "Enable Istio Sidecar": "True", "Framework": "", "InferenceService
+          YAML": "\n    apiVersion: \"serving.kubeflow.org/v1beta1\"\n    kind: \"InferenceService\"\n    metadata:\n      name:
+          {{inputs.parameters.deploy}}\n      namespace: {{inputs.parameters.namespace}}\n    spec:\n      predictor:\n        serviceAccountName:
+          sa\n        pytorch:\n          storageUri: {{inputs.parameters.model_uri}}\n          resources:\n            limits:\n              memory:
+          4Gi\n    ", "Max Replicas": "-1", "Min Replicas": "-1", "Model Name": "",
+          "Model URI": "", "Namespace": "", "Service Account": "", "Watch Timeout":
+          "300"}'}
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.10
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+  - name: minio-upload
+    container:
+      args: [--bucket_name, mlpipeline, --folder_name, '{{inputs.parameters.log_dir}}',
+        --input_path, /tmp/inputs/input_path/data, --filename, '', --mlpipeline_ui_metadata,
+        /tmp/outputs/MLPipeline_UI_Metadata/data]
+      command: [python3, common/minio/upload_to_minio.py]
+      env:
+      - name: MINIO_SECRET_KEY
+        valueFrom:
+          secretKeyRef: {key: secretkey, name: mlpipeline-minio-artifact}
+      - name: MINIO_ACCESS_KEY
+        valueFrom:
+          secretKeyRef: {key: accesskey, name: mlpipeline-minio-artifact}
+      image: public.ecr.aws/pytorch-samples/kfp_samples:latest
+    inputs:
+      parameters:
+      - {name: log_dir}
+      artifacts:
+      - {name: training-tensorboard_root, path: /tmp/inputs/input_path/data}
+    outputs:
+      artifacts:
+      - {name: mlpipeline-ui-metadata, path: /tmp/outputs/MLPipeline_UI_Metadata/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/task_display_name: Tensorboard Events Pusher,
+        pipelines.kubeflow.org/component_spec: '{"description": "Minio Upload\n",
+          "implementation": {"container": {"args": ["--bucket_name", {"inputValue":
+          "bucket_name"}, "--folder_name", {"inputValue": "folder_name"}, "--input_path",
+          {"inputPath": "input_path"}, "--filename", {"inputValue": "filename"}, "--mlpipeline_ui_metadata",
+          {"outputPath": "MLPipeline UI Metadata"}], "command": ["python3", "common/minio/upload_to_minio.py"],
+          "image": "public.ecr.aws/pytorch-samples/kfp_samples:latest"}}, "inputs":
+          [{"description": "Minio Bucket name", "name": "bucket_name"}, {"description":
+          "Minio folder name to upload the files", "name": "folder_name"}, {"description":
+          "Input file/folder name", "name": "input_path"}, {"description": "Input
+          file name", "name": "filename"}], "name": "Minio Upload", "outputs": [{"description":
+          "MLPipeline UI Metadata output", "name": "MLPipeline UI Metadata"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "2a460bbd82125be48540f59d57d7ac1fd0fad65fddc8edd405db5a84aa136767", "url":
+          "yaml/minio_component.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"bucket_name":
+          "mlpipeline", "filename": "", "folder_name": "{{inputs.parameters.log_dir}}"}'}
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.10
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+  - name: minio-upload-2
+    container:
+      args: [--bucket_name, mlpipeline, --folder_name, '{{inputs.parameters.checkpoint_dir}}',
+        --input_path, /tmp/inputs/input_path/data, --filename, '', --mlpipeline_ui_metadata,
+        /tmp/outputs/MLPipeline_UI_Metadata/data]
+      command: [python3, common/minio/upload_to_minio.py]
+      env:
+      - name: MINIO_SECRET_KEY
+        valueFrom:
+          secretKeyRef: {key: secretkey, name: mlpipeline-minio-artifact}
+      - name: MINIO_ACCESS_KEY
+        valueFrom:
+          secretKeyRef: {key: accesskey, name: mlpipeline-minio-artifact}
+      image: public.ecr.aws/pytorch-samples/kfp_samples:latest
+    inputs:
+      parameters:
+      - {name: checkpoint_dir}
+      artifacts:
+      - {name: training-checkpoint_dir, path: /tmp/inputs/input_path/data}
+    outputs:
+      artifacts:
+      - {name: mlpipeline-ui-metadata, path: /tmp/outputs/MLPipeline_UI_Metadata/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/task_display_name: checkpoint_dir Pusher,
+        pipelines.kubeflow.org/component_spec: '{"description": "Minio Upload\n",
+          "implementation": {"container": {"args": ["--bucket_name", {"inputValue":
+          "bucket_name"}, "--folder_name", {"inputValue": "folder_name"}, "--input_path",
+          {"inputPath": "input_path"}, "--filename", {"inputValue": "filename"}, "--mlpipeline_ui_metadata",
+          {"outputPath": "MLPipeline UI Metadata"}], "command": ["python3", "common/minio/upload_to_minio.py"],
+          "image": "public.ecr.aws/pytorch-samples/kfp_samples:latest"}}, "inputs":
+          [{"description": "Minio Bucket name", "name": "bucket_name"}, {"description":
+          "Minio folder name to upload the files", "name": "folder_name"}, {"description":
+          "Input file/folder name", "name": "input_path"}, {"description": "Input
+          file name", "name": "filename"}], "name": "Minio Upload", "outputs": [{"description":
+          "MLPipeline UI Metadata output", "name": "MLPipeline UI Metadata"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "2a460bbd82125be48540f59d57d7ac1fd0fad65fddc8edd405db5a84aa136767", "url":
+          "yaml/minio_component.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"bucket_name":
+          "mlpipeline", "filename": "", "folder_name": "{{inputs.parameters.checkpoint_dir}}"}'}
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.10
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+  - name: minio-upload-3
+    container:
+      args: [--bucket_name, mlpipeline, --folder_name, '{{inputs.parameters.mar_path}}',
+        --input_path, /tmp/inputs/input_path/data, --filename, cifar10_test.mar, --mlpipeline_ui_metadata,
+        /tmp/outputs/MLPipeline_UI_Metadata/data]
+      command: [python3, common/minio/upload_to_minio.py]
+      env:
+      - name: MINIO_SECRET_KEY
+        valueFrom:
+          secretKeyRef: {key: secretkey, name: mlpipeline-minio-artifact}
+      - name: MINIO_ACCESS_KEY
+        valueFrom:
+          secretKeyRef: {key: accesskey, name: mlpipeline-minio-artifact}
+      image: public.ecr.aws/pytorch-samples/kfp_samples:latest
+    inputs:
+      parameters:
+      - {name: mar_path}
+      artifacts:
+      - {name: training-checkpoint_dir, path: /tmp/inputs/input_path/data}
+    outputs:
+      artifacts:
+      - {name: mlpipeline-ui-metadata, path: /tmp/outputs/MLPipeline_UI_Metadata/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/task_display_name: Mar Pusher, pipelines.kubeflow.org/component_spec: '{"description":
+          "Minio Upload\n", "implementation": {"container": {"args": ["--bucket_name",
+          {"inputValue": "bucket_name"}, "--folder_name", {"inputValue": "folder_name"},
+          "--input_path", {"inputPath": "input_path"}, "--filename", {"inputValue":
+          "filename"}, "--mlpipeline_ui_metadata", {"outputPath": "MLPipeline UI Metadata"}],
+          "command": ["python3", "common/minio/upload_to_minio.py"], "image": "public.ecr.aws/pytorch-samples/kfp_samples:latest"}},
+          "inputs": [{"description": "Minio Bucket name", "name": "bucket_name"},
+          {"description": "Minio folder name to upload the files", "name": "folder_name"},
+          {"description": "Input file/folder name", "name": "input_path"}, {"description":
+          "Input file name", "name": "filename"}], "name": "Minio Upload", "outputs":
+          [{"description": "MLPipeline UI Metadata output", "name": "MLPipeline UI
+          Metadata"}]}', pipelines.kubeflow.org/component_ref: '{"digest": "2a460bbd82125be48540f59d57d7ac1fd0fad65fddc8edd405db5a84aa136767",
+          "url": "yaml/minio_component.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"bucket_name":
+          "mlpipeline", "filename": "cifar10_test.mar", "folder_name": "{{inputs.parameters.mar_path}}"}'}
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.10
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+  - name: minio-upload-4
+    container:
+      args: [--bucket_name, mlpipeline, --folder_name, '{{inputs.parameters.config_prop_path}}',
+        --input_path, /tmp/inputs/input_path/data, --filename, config.properties,
+        --mlpipeline_ui_metadata, /tmp/outputs/MLPipeline_UI_Metadata/data]
+      command: [python3, common/minio/upload_to_minio.py]
+      env:
+      - name: MINIO_SECRET_KEY
+        valueFrom:
+          secretKeyRef: {key: secretkey, name: mlpipeline-minio-artifact}
+      - name: MINIO_ACCESS_KEY
+        valueFrom:
+          secretKeyRef: {key: accesskey, name: mlpipeline-minio-artifact}
+      image: public.ecr.aws/pytorch-samples/kfp_samples:latest
+    inputs:
+      parameters:
+      - {name: config_prop_path}
+      artifacts:
+      - {name: training-checkpoint_dir, path: /tmp/inputs/input_path/data}
+    outputs:
+      artifacts:
+      - {name: mlpipeline-ui-metadata, path: /tmp/outputs/MLPipeline_UI_Metadata/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/task_display_name: Conifg Pusher, pipelines.kubeflow.org/component_spec: '{"description":
+          "Minio Upload\n", "implementation": {"container": {"args": ["--bucket_name",
+          {"inputValue": "bucket_name"}, "--folder_name", {"inputValue": "folder_name"},
+          "--input_path", {"inputPath": "input_path"}, "--filename", {"inputValue":
+          "filename"}, "--mlpipeline_ui_metadata", {"outputPath": "MLPipeline UI Metadata"}],
+          "command": ["python3", "common/minio/upload_to_minio.py"], "image": "public.ecr.aws/pytorch-samples/kfp_samples:latest"}},
+          "inputs": [{"description": "Minio Bucket name", "name": "bucket_name"},
+          {"description": "Minio folder name to upload the files", "name": "folder_name"},
+          {"description": "Input file/folder name", "name": "input_path"}, {"description":
+          "Input file name", "name": "filename"}], "name": "Minio Upload", "outputs":
+          [{"description": "MLPipeline UI Metadata output", "name": "MLPipeline UI
+          Metadata"}]}', pipelines.kubeflow.org/component_ref: '{"digest": "2a460bbd82125be48540f59d57d7ac1fd0fad65fddc8edd405db5a84aa136767",
+          "url": "yaml/minio_component.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"bucket_name":
+          "mlpipeline", "filename": "config.properties", "folder_name": "{{inputs.parameters.config_prop_path}}"}'}
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.10
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+  - name: overfitting
+    container:
+      args: [--dataset_path, /tmp/inputs/input_data/data, --script_args, model_name=resnet.pth,
+        --ptl_args, 'max_epochs=1, gpus=0, accelerator=None, overfit_batches=10',
+        --tensorboard_root, /tmp/outputs/tensorboard_root/data]
+      command: [python3, cifar10/cifar10_overfit.py]
+      env:
+      - name: MINIO_SECRET_KEY
+        valueFrom:
+          secretKeyRef: {key: secretkey, name: mlpipeline-minio-artifact}
+      - name: MINIO_ACCESS_KEY
+        valueFrom:
+          secretKeyRef: {key: accesskey, name: mlpipeline-minio-artifact}
+      image: kfp_samples_local:latest
+      imagePullPolicy: IfNotPresent
+    inputs:
+      artifacts:
+      - {name: preprocessdata-output_data, path: /tmp/inputs/input_data/data}
+    outputs:
+      artifacts:
+      - {name: overfitting-tensorboard_root, path: /tmp/outputs/tensorboard_root/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/task_display_name: Overfitting Test, pipelines.kubeflow.org/component_spec: '{"description":
+          "Pytorch Overfit check\n", "implementation": {"container": {"args": ["--dataset_path",
+          {"inputPath": "input_data"}, "--script_args", {"inputValue": "script_args"},
+          "--ptl_args", {"inputValue": "ptl_arguments"}, "--tensorboard_root", {"outputPath":
+          "tensorboard_root"}], "command": ["python3", "cifar10/cifar10_overfit.py"],
+          "image": "kfp_samples_local:latest"}}, "inputs": [{"description": "Input
+          dataset path", "name": "input_data"}, {"description": "Arguments to the
+          model script", "name": "script_args"}, {"description": "Arguments to pytorch
+          lightning Trainer", "name": "ptl_arguments"}], "name": "Overfitting", "outputs":
+          [{"description": "Tensorboard output path", "name": "tensorboard_root"}]}',
+        pipelines.kubeflow.org/component_ref: '{"digest": "a780837040c723112c8ee1ff82bf44ef7b370dcf260983ae35fef42358d637cb",
+          "url": "yaml/overfit_component.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"ptl_arguments":
+          "max_epochs=1, gpus=0, accelerator=None, overfit_batches=10", "script_args":
+          "model_name=resnet.pth"}'}
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.10
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+  - name: preprocessdata
+    container:
+      args: [--output_path, /tmp/outputs/output_data/data, --mlpipeline_ui_metadata,
+        /tmp/outputs/MLPipeline_UI_Metadata/data]
+      command: [python3, cifar10/cifar10_pre_process.py]
+      env:
+      - name: MINIO_SECRET_KEY
+        valueFrom:
+          secretKeyRef: {key: secretkey, name: mlpipeline-minio-artifact}
+      - name: MINIO_ACCESS_KEY
+        valueFrom:
+          secretKeyRef: {key: accesskey, name: mlpipeline-minio-artifact}
+      image: public.ecr.aws/pytorch-samples/kfp_samples:latest
+    outputs:
+      artifacts:
+      - {name: mlpipeline-ui-metadata, path: /tmp/outputs/MLPipeline_UI_Metadata/data}
+      - {name: preprocessdata-output_data, path: /tmp/outputs/output_data/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/task_display_name: Preprocess & Transform,
+        pipelines.kubeflow.org/component_spec: '{"description": "Prepare data for
+          PyTorch training.\n", "implementation": {"container": {"args": ["--output_path",
+          {"outputPath": "output_data"}, "--mlpipeline_ui_metadata", {"outputPath":
+          "MLPipeline UI Metadata"}], "command": ["python3", "cifar10/cifar10_pre_process.py"],
+          "image": "public.ecr.aws/pytorch-samples/kfp_samples:latest"}}, "name":
+          "PreProcessData", "outputs": [{"description": "The path to the input datasets",
+          "name": "output_data"}, {"description": "Path to generate MLPipeline UI
+          Metadata", "name": "MLPipeline UI Metadata"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "82ab3d738618cd16b722e473bde5ea34389a21a78417120668e67d543b655661", "url":
+          "yaml/preprocess_component.yaml"}'}
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.10
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+  - name: training
+    container:
+      args: [--dataset_path, /tmp/inputs/input_data/data, --script_args, 'model_name=resnet.pth,confusion_matrix_url=minio://{{inputs.parameters.log_bucket}}/{{inputs.parameters.confusion_matrix_log_dir}}',
+        --ptl_args, 'max_epochs=1, gpus=0, accelerator=None, profiler=pytorch, accumulate_grad_batches=1, stochastic_weight_avg=True', --tensorboard_root,
+        /tmp/outputs/tensorboard_root/data, --checkpoint_dir, /tmp/outputs/checkpoint_dir/data,
+        --mlpipeline_ui_metadata, /tmp/outputs/MLPipeline_UI_Metadata/data, --mlpipeline_metrics,
+        /tmp/outputs/MLPipeline_Metrics/data]
+      command: [python3, cifar10/cifar10_pytorch.py]
+      env:
+      - name: MINIO_SECRET_KEY
+        valueFrom:
+          secretKeyRef: {key: secretkey, name: mlpipeline-minio-artifact}
+      - name: MINIO_ACCESS_KEY
+        valueFrom:
+          secretKeyRef: {key: accesskey, name: mlpipeline-minio-artifact}
+      image: public.ecr.aws/pytorch-samples/kfp_samples:latest
+    inputs:
+      parameters:
+      - {name: confusion_matrix_log_dir}
+      - {name: log_bucket}
+      artifacts:
+      - {name: preprocessdata-output_data, path: /tmp/inputs/input_data/data}
+    outputs:
+      artifacts:
+      - {name: mlpipeline-ui-metadata, path: /tmp/outputs/MLPipeline_UI_Metadata/data}
+      - {name: mlpipeline-metrics, path: /tmp/outputs/MLPipeline_Metrics/data}
+      - {name: training-checkpoint_dir, path: /tmp/outputs/checkpoint_dir/data}
+      - {name: training-tensorboard_root, path: /tmp/outputs/tensorboard_root/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/task_display_name: Training, pipelines.kubeflow.org/component_spec: '{"description":
+          "Pytorch training\n", "implementation": {"container": {"args": ["--dataset_path",
+          {"inputPath": "input_data"}, "--script_args", {"inputValue": "script_args"},
+          "--ptl_args", {"inputValue": "ptl_arguments"}, "--tensorboard_root", {"outputPath":
+          "tensorboard_root"}, "--checkpoint_dir", {"outputPath": "checkpoint_dir"},
+          "--mlpipeline_ui_metadata", {"outputPath": "MLPipeline UI Metadata"}, "--mlpipeline_metrics",
+          {"outputPath": "MLPipeline Metrics"}], "command": ["python3", "cifar10/cifar10_pytorch.py"],
+          "image": "public.ecr.aws/pytorch-samples/kfp_samples:latest"}}, "inputs":
+          [{"description": "Input dataset path", "name": "input_data"}, {"description":
+          "Arguments to the model script", "name": "script_args"}, {"description":
+          "Arguments to pytorch lightning Trainer", "name": "ptl_arguments"}], "name":
+          "Training", "outputs": [{"description": "Tensorboard output path", "name":
+          "tensorboard_root"}, {"description": "Model checkpoint output", "name":
+          "checkpoint_dir"}, {"description": "MLPipeline UI Metadata output", "name":
+          "MLPipeline UI Metadata"}, {"description": "MLPipeline Metrics output",
+          "name": "MLPipeline Metrics"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "6f17939b91203446c15bedb031c81880ee1ae04b30681d8d436d1a100d7c7877", "url":
+          "yaml/train_component.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"ptl_arguments":
+          "max_epochs=1, gpus=0, accelerator=None, profiler=pytorch", "script_args":
+          "model_name=resnet.pth,confusion_matrix_url=minio://{{inputs.parameters.log_bucket}}/{{inputs.parameters.confusion_matrix_log_dir}}"}'}
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.8.10
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
+  - name: training-cifar10-pipeline
+    inputs:
+      parameters:
+      - {name: checkpoint_dir}
+      - {name: config_prop_path}
+      - {name: confusion_matrix_log_dir}
+      - {name: cookie}
+      - {name: deploy}
+      - {name: ingress_gateway}
+      - {name: input_req}
+      - {name: isvc_name}
+      - {name: log_bucket}
+      - {name: log_dir}
+      - {name: mar_path}
+      - {name: minio_endpoint}
+      - {name: model}
+      - {name: model_uri}
+      - {name: namespace}
+      - {name: tf_image}
+    dag:
+      tasks:
+      - name: create-tensorboard-visualization
+        template: create-tensorboard-visualization
+        arguments:
+          parameters:
+          - {name: log_bucket, value: '{{inputs.parameters.log_bucket}}'}
+          - {name: log_dir, value: '{{inputs.parameters.log_dir}}'}
+          - {name: minio_endpoint, value: '{{inputs.parameters.minio_endpoint}}'}
+          - {name: tf_image, value: '{{inputs.parameters.tf_image}}'}
+      - name: inference
+        template: inference
+        dependencies: [kubeflow-serve-model-using-kfserving]
+        arguments:
+          parameters:
+          - {name: cookie, value: '{{inputs.parameters.cookie}}'}
+          - {name: ingress_gateway, value: '{{inputs.parameters.ingress_gateway}}'}
+          - {name: input_req, value: '{{inputs.parameters.input_req}}'}
+          - {name: isvc_name, value: '{{inputs.parameters.isvc_name}}'}
+          - {name: model, value: '{{inputs.parameters.model}}'}
+      - name: inference-2
+        template: inference-2
+        dependencies: [inference]
+        arguments:
+          parameters:
+          - {name: cookie, value: '{{inputs.parameters.cookie}}'}
+          - {name: ingress_gateway, value: '{{inputs.parameters.ingress_gateway}}'}
+          - {name: input_req, value: '{{inputs.parameters.input_req}}'}
+          - {name: isvc_name, value: '{{inputs.parameters.isvc_name}}'}
+          - {name: model, value: '{{inputs.parameters.model}}'}
+      - name: kubeflow-serve-model-using-kfserving
+        template: kubeflow-serve-model-using-kfserving
+        dependencies: [minio-upload-3]
+        arguments:
+          parameters:
+          - {name: deploy, value: '{{inputs.parameters.deploy}}'}
+          - {name: model_uri, value: '{{inputs.parameters.model_uri}}'}
+          - {name: namespace, value: '{{inputs.parameters.namespace}}'}
+      - name: minio-upload
+        template: minio-upload
+        dependencies: [training]
+        arguments:
+          parameters:
+          - {name: log_dir, value: '{{inputs.parameters.log_dir}}'}
+          artifacts:
+          - {name: training-tensorboard_root, from: '{{tasks.training.outputs.artifacts.training-tensorboard_root}}'}
+      - name: minio-upload-2
+        template: minio-upload-2
+        dependencies: [training]
+        arguments:
+          parameters:
+          - {name: checkpoint_dir, value: '{{inputs.parameters.checkpoint_dir}}'}
+          artifacts:
+          - {name: training-checkpoint_dir, from: '{{tasks.training.outputs.artifacts.training-checkpoint_dir}}'}
+      - name: minio-upload-3
+        template: minio-upload-3
+        dependencies: [training]
+        arguments:
+          parameters:
+          - {name: mar_path, value: '{{inputs.parameters.mar_path}}'}
+          artifacts:
+          - {name: training-checkpoint_dir, from: '{{tasks.training.outputs.artifacts.training-checkpoint_dir}}'}
+      - name: minio-upload-4
+        template: minio-upload-4
+        dependencies: [training]
+        arguments:
+          parameters:
+          - {name: config_prop_path, value: '{{inputs.parameters.config_prop_path}}'}
+          artifacts:
+          - {name: training-checkpoint_dir, from: '{{tasks.training.outputs.artifacts.training-checkpoint_dir}}'}
+      - name: overfitting
+        template: overfitting
+        dependencies: [preprocessdata]
+        arguments:
+          artifacts:
+          - {name: preprocessdata-output_data, from: '{{tasks.preprocessdata.outputs.artifacts.preprocessdata-output_data}}'}
+      - name: preprocessdata
+        template: preprocessdata
+        dependencies: [create-tensorboard-visualization]
+      - name: training
+        template: training
+        dependencies: [overfitting, preprocessdata]
+        arguments:
+          parameters:
+          - {name: confusion_matrix_log_dir, value: '{{inputs.parameters.confusion_matrix_log_dir}}'}
+          - {name: log_bucket, value: '{{inputs.parameters.log_bucket}}'}
+          artifacts:
+          - {name: preprocessdata-output_data, from: '{{tasks.preprocessdata.outputs.artifacts.preprocessdata-output_data}}'}
+  arguments:
+    parameters:
+    - {name: minio_endpoint, value: 'http://minio-service.kubeflow:9000'}
+    - {name: log_bucket, value: mlpipeline}
+    - {name: log_dir, value: 'tensorboard/logs/{{workflow.uid}}'}
+    - {name: mar_path, value: 'mar/{{workflow.uid}}/model-store'}
+    - {name: config_prop_path, value: 'mar/{{workflow.uid}}/config'}
+    - {name: model_uri, value: 's3://mlpipeline/mar/{{workflow.uid}}'}
+    - {name: tf_image, value: 'public.ecr.aws/pytorch-samples/tboard:latest'}
+    - {name: deploy, value: torchserve}
+    - {name: isvc_name, value: torchserve.kubeflow-user-example-com.example.com}
+    - {name: model, value: cifar10}
+    - {name: namespace, value: kubeflow-user-example-com}
+    - {name: confusion_matrix_log_dir, value: 'confusion_matrix/{{workflow.uid}}/'}
+    - {name: checkpoint_dir, value: checkpoint_dir/cifar10}
+    - {name: input_req, value: 'https://kubeflow-dataset.s3.us-east-2.amazonaws.com/cifar10_input/input.json'}
+    - {name: cookie, value: authservice_session=}
+    - {name: ingress_gateway, value: 'http://istio-ingressgateway.istio-system.svc.cluster.local'}
+  serviceAccountName: pipeline-runner

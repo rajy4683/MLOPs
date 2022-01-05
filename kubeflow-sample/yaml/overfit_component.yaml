@@ -1,0 +1,39 @@
+description: 'Pytorch Overfit check
+
+  '
+implementation:
+  container:
+    args:
+    - --dataset_path
+    - inputPath: input_data
+    - --script_args
+    - inputValue: script_args
+    - --ptl_args
+    - inputValue: ptl_arguments
+    - --tensorboard_root
+    - outputPath: tensorboard_root
+    # - --mlpipeline_ui_metadata
+    # - outputPath: MLPipeline UI Metadata
+    # - --mlpipeline_metrics
+    # - outputPath: MLPipeline Metrics
+    command:
+    - python3
+    - cifar10/cifar10_overfit.py
+    image: kfp_samples_local:latest
+inputs:
+- description: Input dataset path
+  name: input_data
+- description: Arguments to the model script
+  name: script_args
+- description: Arguments to pytorch lightning Trainer
+  name: ptl_arguments
+name: Overfitting
+outputs:
+- description: Tensorboard output path
+  name: tensorboard_root
+# - description: Model checkpoint output
+#   name: checkpoint_dir
+# - description: MLPipeline UI Metadata output
+#   name: MLPipeline UI Metadata
+# - description: MLPipeline Metrics output
+#   name: MLPipeline Metrics

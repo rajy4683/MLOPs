@@ -1,0 +1,20 @@
+description: 'Prepare data for PyTorch training.
+
+  '
+implementation:
+  container:
+    args:
+    - --output_path
+    - outputPath: output_data
+    - --mlpipeline_ui_metadata
+    - outputPath: MLPipeline UI Metadata
+    command:
+    - python3
+    - cifar10/cifar10_pre_process.py
+    image: public.ecr.aws/pytorch-samples/kfp_samples:latest
+name: PreProcessData
+outputs:
+- description: The path to the input datasets
+  name: output_data
+- description: Path to generate MLPipeline UI Metadata
+  name: MLPipeline UI Metadata
